@@ -1,6 +1,6 @@
 package alipay
 
-import "../common"
+import "github.com/heyuanchao/wxpay-alipay-demo-go/common"
 
 type AlipayTradeAppPayRequest struct {
 	BizContent string

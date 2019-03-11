@@ -8,7 +8,7 @@ import (
 	"math/rand"
 	"net/url"
 	"time"
-	"../common"
+	"github.com/heyuanchao/wxpay-alipay-demo-go/common"
 )
 
 var (

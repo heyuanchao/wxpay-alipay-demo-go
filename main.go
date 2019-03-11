@@ -10,8 +10,8 @@ import (
 	"net/url"
 	"reflect"
 	"strings"
-	"./alipay"
-	"./wxpay"
+	"github.com/heyuanchao/wxpay-alipay-demo-go/alipay"
+	"github.com/heyuanchao/wxpay-alipay-demo-go/wxpay"
 )
 
 func main() {
