@@ -14,7 +14,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
-	"wxpay-alipay-demo-go/common"
+	"../common"
 )
 
 var (
