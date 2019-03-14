@@ -9,12 +9,12 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 	"github.com/heyuanchao/wxpay-alipay-demo-go/common"
+	"log"
 )
 
 var (
@@ -32,7 +32,7 @@ XX
 	notifyUrl  = "http://xxx.xxx.xxx.xxx/alipay"
 )
 
-func DoRequest(req *AlipayTradeAppPayRequest) []byte {
+func DoRequest(req *AlipayTradeAppPayRequest) ([]byte, error) {
 	p := url.Values{}
 	p.Add("app_id", appID)
 	p.Add("biz_content", req.BizContent)
@@ -46,69 +46,86 @@ func DoRequest(req *AlipayTradeAppPayRequest) []byte {
 
 	r, err := http.NewRequest("POST", gatewayUrl, strings.NewReader(p.Encode()))
 	if err != nil {
-		log.Print(err)
-		return []byte{}
+		log.Println(err)
+		return []byte{}, err
 	}
+	result, err := ioutil.ReadAll(r.Body)
 	defer r.Body.Close()
-	result, _ := ioutil.ReadAll(r.Body)
-	return result
+	if err != nil {
+		log.Println(err)
+	}
+	return result, err
 }
 
-func rsaCheck(params url.Values) bool {
+func rsaCheck(params url.Values) (bool, error) {
 	sign := params.Get("sign")
 	params.Del("sign")
 	params.Del("sign_type")
 	return verify([]byte(common.GetSignContent(params)), sign)
 }
 
-func Check(params url.Values) bool {
+func Check(params url.Values) (bool, error) {
 	tradeStatus := params.Get("trade_status")
 	if appID == params.Get("app_id") && partnerID == params.Get("seller_id") && (tradeStatus == "TRADE_SUCCESS" || tradeStatus == "TRADE_FINISHED") {
 		return rsaCheck(params)
 	}
-	return false
+	return false, nil
 }
 
 func generateSign(params url.Values) string {
-	return sign([]byte(common.GetSignContent(params)))
+	s, _ := sign([]byte(common.GetSignContent(params)))
+	return s
 }
 
-func sign(data []byte) string {
+func sign(data []byte) (string, error) {
 	block, _ := pem.Decode(rsaPrivateKey)
 	if block == nil {
-		return ""
+		return "", nil
 	}
 	privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 	if err != nil {
-		return ""
+		log.Println(err)
+		return "", err
 	}
 	h := sha256.New()
-	h.Write(data)
+	_, err = h.Write(data)
+	if err != nil {
+		log.Println(err)
+		return "", err
+	}
 	sign, err := rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA256, h.Sum(nil))
 	if err != nil {
-		return ""
+		log.Println(err)
+		return "", err
 	}
-	return base64.StdEncoding.EncodeToString(sign)
+	return base64.StdEncoding.EncodeToString(sign), nil
 }
 
-func verify(data []byte, sign string) bool {
+func verify(data []byte, sign string) (bool, error) {
 	sig, err := base64.StdEncoding.DecodeString(sign)
 	if err != nil {
-		return false
+		log.Println(err)
+		return false, err
 	}
 	block, _ := pem.Decode(alipayRSAPublicKey)
 	if block == nil {
-		return false
+		log.Println(err)
+		return false, nil
 	}
 	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
-		return false
+		log.Println(err)
+		return false, err
 	}
 	h := sha256.New()
-	h.Write(data)
-	err = rsa.VerifyPKCS1v15(pub.(*rsa.PublicKey), crypto.SHA256, h.Sum(nil), sig)
-	if err == nil {
-		return true
+	_, err = h.Write(data)
+	if err != nil {
+		log.Println(err)
+		return false, err
 	}
-	return false
+	err = rsa.VerifyPKCS1v15(pub.(*rsa.PublicKey), crypto.SHA256, h.Sum(nil), sig)
+	if err != nil {
+		log.Println(err)
+	}
+	return err == nil , err
 }

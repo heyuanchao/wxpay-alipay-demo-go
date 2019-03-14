@@ -79,24 +79,21 @@ func getSignParams(r *WXPayResult) url.Values {
 }
 
 func VerifyPayResult(result *WXPayResult) bool {
-	if result.ReturnCode == "SUCCESS" && verify(generateSign(getSignParams(result)), result.Sign) {
-		return true
-	}
-	return false
+	return result.ReturnCode == "SUCCESS" && result.Sign == generateSign(getSignParams(result))
 }
 
 func generateSign(params url.Values) string {
-	return sign(common.GetSignContent(params) + "&key=" + key)
+	s, _ := sign(common.GetSignContent(params) + "&key=" + key)
+	log.Println(s)
+	return s
 }
 
-func sign(data string) string {
+func sign(data string) (string, error) {
 	log.Println(data)
 	m := md5.New()
-	io.WriteString(m, data)
-	return fmt.Sprintf("%X", m.Sum(nil))
-}
-
-func verify(data string, sign string) bool {
-	log.Println(data)
-	return data == sign
+	_, err := io.WriteString(m, data)
+	if err != nil {
+		log.Println(err)
+	}
+	return fmt.Sprintf("%X", m.Sum(nil)), err
 }

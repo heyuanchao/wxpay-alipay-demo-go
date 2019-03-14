@@ -34,20 +34,39 @@ func handleAliPay(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		request := alipay.NewAlipayTradeAppPayRequest(total_amount)
-		data := alipay.DoRequest(request)
+		data, err := alipay.DoRequest(request)
+		if err != nil {
+			fmt.Fprintf(w, "%v", err)
+			return
+		}
 		fmt.Fprintf(w, "%s", data)
 	case "POST":
-		result, _ := ioutil.ReadAll(r.Body)
-		r.Body.Close()
-		log.Printf("result: %s", result)
+		result, err := ioutil.ReadAll(r.Body)
+		defer r.Body.Close()
+		if err != nil {
+			log.Println(err)
+			fmt.Fprintf(w, "%v", "failure")
+			return
+		}
+		log.Printf("result: %s\n", result)
 		m, err := url.ParseQuery(string(result))
-		if err == nil && alipay.Check(m) {
+		if err != nil {
+			log.Println(err)
+			fmt.Fprintf(w, "%v", "failure")
+			return
+		}
+		ok, err := alipay.Check(m)
+		if err != nil {
+			fmt.Fprintf(w, "%v", "failure")
+			return
+		}
+		if ok {
 			// 需要验证 out_trade_no 和 total_amount
 			log.Println("success")
 			fmt.Fprintf(w, "%v", "success")
-			return
+		} else {
+			fmt.Fprintf(w, "%v", "failure")
 		}
-		fmt.Fprintf(w, "%v", "failure")
 	}
 }
 
@@ -64,17 +83,28 @@ func handleWXPay(w http.ResponseWriter, r *http.Request) {
 		p := wxpay.NewWXTradeAppPayParameter(total_fee, ip)
 		data, err := json.Marshal(p)
 		if err != nil {
-			log.Printf("marshal message %v error: %v", reflect.TypeOf(p), err)
-			data = []byte{}
+			log.Printf("marshal message %v error: %v\n", reflect.TypeOf(p), err)
+			fmt.Fprintf(w, "%v", err)
+			return
 		}
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		fmt.Fprintf(w, "%s", data)
 	case "POST":
-		result, _ := ioutil.ReadAll(r.Body)
-		r.Body.Close()
-		log.Printf("result: %s", result)
+		result, err := ioutil.ReadAll(r.Body)
+		defer r.Body.Close()
+		if err != nil {
+			log.Println(err)
+			fmt.Fprintf(w, "%v", err)
+			return
+		}
+		log.Printf("result: %s\n", result)
 		payResult := new(wxpay.WXPayResult)
-		xml.Unmarshal(result, &payResult)
+		err = xml.Unmarshal(result, &payResult)
+		if err != nil {
+			log.Println(err)
+			fmt.Fprintf(w, "%v", err)
+			return
+		}
 		if wxpay.VerifyPayResult(payResult) {
 			// 需要验证 out_trade_no 和 total_fee
 			fmt.Fprintf(w, "%v", wxpay.ReturnWXSuccess)
